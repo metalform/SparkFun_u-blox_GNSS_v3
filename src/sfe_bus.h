@@ -55,6 +55,7 @@
 #include <Arduino.h>
 #include <Wire.h>
 #include <SPI.h>
+#include "../../../src/MainBoard/I2CMutex.hpp"
 
 namespace SparkFun_UBLOX_GNSS
 {

@@ -77,8 +77,10 @@ namespace SparkFun_UBLOX_GNSS
     {
       _i2cPort = &wirePort;
 
+      I2C_LOCK();
       if (bInit)
         _i2cPort->begin();
+      I2C_UNLOCK();
     }
 
     _address = address;
@@ -103,11 +105,18 @@ namespace SparkFun_UBLOX_GNSS
   bool SfeI2C::ping()
   {
 
-    if (!_i2cPort)
+    I2C_LOCK();
+    if (!_i2cPort){
+      I2C_UNLOCK();
       return false;
+    }
 
+    I2C_LOCK();
     _i2cPort->beginTransmission(_address);
-    return _i2cPort->endTransmission() == 0;
+    bool result = (_i2cPort->endTransmission() == 0);
+    I2C_UNLOCK();
+
+    return result;
   }
 
   //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -126,30 +135,39 @@ namespace SparkFun_UBLOX_GNSS
 
   uint16_t SfeI2C::available()
   {
-
-    if (!_i2cPort)
+    I2C_LOCK();
+    if (!_i2cPort) {
+      I2C_UNLOCK();
       return false;
+    }
+    I2C_UNLOCK();
 
     // Get the number of bytes available from the module
     uint16_t bytesAvailable = 0;
+    I2C_LOCK();
     _i2cPort->beginTransmission(_address);
     _i2cPort->write(0xFD);                               // 0xFD (MSB) and 0xFE (LSB) are the registers that contain number of bytes available
     uint8_t i2cError = _i2cPort->endTransmission(false); // Always send a restart command. Do not release the bus. ESP32 supports this.
+    I2C_UNLOCK();
     if (i2cError != 0)
     {
       return (0); // Sensor did not ACK
     }
 
     // Forcing requestFrom to use a restart would be unwise. If bytesAvailable is zero, we want to surrender the bus.
+    I2C_LOCK();
     uint16_t bytesReturned = _i2cPort->requestFrom(_address, static_cast<uint8_t>(2));
+    I2C_UNLOCK();
     if (bytesReturned != 2)
     {
       return (0); // Sensor did not return 2 bytes
     }
     else // if (_i2cPort->available())
     {
+      I2C_LOCK();
       uint8_t msb = _i2cPort->read();
       uint8_t lsb = _i2cPort->read();
+      I2C_UNLOCK();
       bytesAvailable = (uint16_t)msb << 8 | lsb;
     }
 
@@ -161,16 +179,28 @@ namespace SparkFun_UBLOX_GNSS
 
   uint8_t SfeI2C::writeBytes(uint8_t *dataToWrite, uint8_t length)
   {
-    if (!_i2cPort)
+    I2C_LOCK();
+    if (!_i2cPort){
+      I2C_UNLOCK();
       return 0;
-
+    }
+    I2C_UNLOCK();
+      
     if (length == 0)
       return 0;
 
+    I2C_LOCK();
     _i2cPort->beginTransmission(_address);
     uint8_t written = _i2cPort->write((const uint8_t *)dataToWrite, length);
-    if (_i2cPort->endTransmission() == 0)
+    I2C_UNLOCK();
+
+    I2C_LOCK();
+    if (_i2cPort->endTransmission() == 0){
+      I2C_UNLOCK();
       return written;
+    }
+    I2C_UNLOCK();
+      
 
     return 0;
   }
@@ -180,16 +210,27 @@ namespace SparkFun_UBLOX_GNSS
 
   uint8_t SfeI2C::readBytes(uint8_t *data, uint8_t length)
   {
-    if (!_i2cPort)
+    I2C_LOCK();
+    if (!_i2cPort){
+      I2C_UNLOCK();
       return 0;
+    } 
+    I2C_UNLOCK();
+      
 
     if (length == 0)
       return 0;
 
+    I2C_LOCK();
     uint8_t bytesReturned = _i2cPort->requestFrom(_address, length);
+    I2C_UNLOCK();
 
-    for (uint8_t i = 0; i < bytesReturned; i++)
+    for (uint8_t i = 0; i < bytesReturned; i++){
+      I2C_LOCK();
       *data++ = _i2cPort->read();
+      I2C_UNLOCK();
+    }
+      
 
     return bytesReturned;
   }
